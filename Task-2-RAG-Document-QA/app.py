@@ -6,6 +6,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from groq import Groq
 from pypdf import PdfReader
+from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
@@ -41,43 +42,46 @@ def get_api_key():
 
 # --------------------------------------------------
 # PROFESSIONAL UI STYLES
-# All CSS must remain inside this single style block.
 # --------------------------------------------------
 
 st.markdown(
     """
     <style>
+    /* Main page */
     .stApp {
         background: #f5f7fb;
         color: #172033;
     }
 
     [data-testid="stHeader"] {
-        background: rgba(245, 247, 251, 0.95);
+        background: #f5f7fb;
     }
 
+    .block-container {
+        max-width: 1200px;
+        padding-top: 1.8rem;
+        padding-bottom: 2rem;
+    }
+
+    /* Sidebar */
     [data-testid="stSidebar"] {
         background: #ffffff;
-        border-right: 1px solid #e5eaf2;
+        border-right: 1px solid #e1e7f0;
     }
 
     [data-testid="stSidebar"] * {
         color: #172033;
     }
 
-    .block-container {
-        padding-top: 1.8rem;
-        padding-bottom: 2rem;
-        max-width: 1200px;
-    }
-
+    /* Brand */
     .brand {
         font-size: 1.6rem;
         font-weight: 800;
-        color: #263c88;
+        color: #304bb5 !important;
         margin-bottom: 0.2rem;
     }
 
+    /* Hero banner */
     .hero {
         padding: 1.8rem;
         border-radius: 20px;
@@ -87,48 +91,49 @@ st.markdown(
     }
 
     .hero h1 {
-        color: #172554;
+        color: #172554 !important;
         font-size: 2.2rem;
         margin: 0 0 0.5rem 0;
         font-weight: 800;
     }
 
     .hero p {
-        color: #475569;
+        color: #475569 !important;
         font-size: 1rem;
         margin: 0;
     }
 
     .section-title {
-        color: #172554;
+        color: #172554 !important;
         font-size: 1.2rem;
         font-weight: 750;
         margin-bottom: 0.8rem;
     }
 
+    /* Information cards */
     .info-card {
         background: #ffffff;
-        border: 1px solid #e1e7f0;
+        border: 1px solid #dbe4f0;
         border-radius: 16px;
         padding: 1.2rem;
         margin-bottom: 1rem;
     }
 
     .info-card h3 {
-        color: #172554;
+        color: #172554 !important;
         margin-top: 0;
         font-size: 1.05rem;
     }
 
     .info-card p {
-        color: #475569;
+        color: #475569 !important;
         margin-bottom: 0;
     }
 
-    /* Chat message text */
+    /* Chat messages */
     [data-testid="stChatMessage"] {
-        background: #ffffff;
-        border: 1px solid #e5eaf2;
+        background: #ffffff !important;
+        border: 1px solid #e1e7f0;
         border-radius: 14px;
         padding: 0.9rem;
         margin-bottom: 0.8rem;
@@ -137,67 +142,111 @@ st.markdown(
     [data-testid="stChatMessage"] p,
     [data-testid="stChatMessage"] li,
     [data-testid="stChatMessage"] span,
-    [data-testid="stChatMessage"] div,
     [data-testid="stChatMessage"] h1,
     [data-testid="stChatMessage"] h2,
     [data-testid="stChatMessage"] h3 {
-        color: #172033;
+        color: #172033 !important;
     }
 
     /* Chat input */
     [data-testid="stChatInput"] {
-        background: #ffffff;
-        border-radius: 14px;
+        background: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 14px !important;
     }
 
     [data-testid="stChatInput"] textarea {
-        color: #172033 !important;
         background: #ffffff !important;
-        caret-color: #263c88;
+        color: #172033 !important;
+        caret-color: #304bb5 !important;
     }
 
     [data-testid="stChatInput"] textarea::placeholder {
         color: #64748b !important;
     }
 
-    /* Other input fields */
+    /* Standard input fields */
     .stTextInput input,
     .stTextArea textarea {
-        color: #172033 !important;
         background: #ffffff !important;
+        color: #172033 !important;
     }
 
-    /* Buttons */
+    /* ALL STANDARD BUTTONS */
     .stButton > button,
     .stDownloadButton > button {
-        border-radius: 10px;
-        border: 1px solid #d5deed;
-        font-weight: 650;
+        background-color: #e8efff !important;
+        color: #243b80 !important;
+        border: 1px solid #b8c9f0 !important;
+        border-radius: 10px !important;
+        font-weight: 650 !important;
         min-height: 2.6rem;
     }
 
-    .stButton > button[kind="primary"] {
-        background: #304bb5;
-        color: #ffffff;
-        border: none;
+    /* Button hover */
+    .stButton > button:hover,
+    .stDownloadButton > button:hover {
+        background-color: #d5e2ff !important;
+        color: #172554 !important;
+        border-color: #829fe5 !important;
     }
 
-    .stButton > button[kind="primary"]:hover {
-        background: #243b98;
-        color: #ffffff;
+    /* Primary buttons */
+    .stButton > button[kind="primary"],
+    .stButton > button[data-testid="stBaseButton-primary"] {
+        background-color: #304bb5 !important;
+        color: #ffffff !important;
+        border: 1px solid #304bb5 !important;
     }
 
-    /* Uploaded file and status text */
+    .stButton > button[kind="primary"]:hover,
+    .stButton > button[data-testid="stBaseButton-primary"]:hover {
+        background-color: #243b98 !important;
+        color: #ffffff !important;
+    }
+
+    /* Disabled buttons */
+    .stButton > button:disabled {
+        background-color: #edf0f5 !important;
+        color: #7b8495 !important;
+        border-color: #d8dee8 !important;
+    }
+
+    /* File uploader */
     [data-testid="stFileUploader"] {
         background: #ffffff;
+        border: 1px solid #e1e7f0;
         border-radius: 12px;
+        padding: 0.5rem;
     }
 
+    [data-testid="stFileUploader"] * {
+        color: #172033;
+    }
+
+    /* Alerts */
     [data-testid="stAlert"] {
         border-radius: 12px;
     }
 
-    /* Remove Streamlit branding */
+    /* Expanders */
+    [data-testid="stExpander"] {
+        background: #ffffff;
+        border: 1px solid #dbe4f0;
+        border-radius: 12px;
+    }
+
+    [data-testid="stExpander"] summary {
+        color: #172033 !important;
+    }
+
+    /* Metrics */
+    [data-testid="stMetricLabel"],
+    [data-testid="stMetricValue"] {
+        color: #172033 !important;
+    }
+
+    /* Hide Streamlit branding */
     #MainMenu {
         visibility: hidden;
     }
@@ -232,11 +281,10 @@ if "processed" not in st.session_state:
 
 
 # --------------------------------------------------
-# HELPER FUNCTIONS
+# PDF EXTRACTION
 # --------------------------------------------------
 
 def extract_pdf_text(pdf_bytes):
-    """Extract text from a PDF and retain page numbers."""
     reader = PdfReader(BytesIO(pdf_bytes))
     pages = []
 
@@ -244,15 +292,17 @@ def extract_pdf_text(pdf_bytes):
         text = page.extract_text() or ""
 
         if text.strip():
-            pages.append(
-                {
-                    "page": page_number,
-                    "text": text,
-                }
-            )
+            pages.append({
+                "page": page_number,
+                "text": text,
+            })
 
     return pages
 
+
+# --------------------------------------------------
+# EMBEDDINGS
+# --------------------------------------------------
 
 @st.cache_resource
 def load_embeddings():
@@ -261,14 +311,17 @@ def load_embeddings():
     )
 
 
+# --------------------------------------------------
+# CREATE VECTOR STORE
+# --------------------------------------------------
+
 def create_vector_store(pdf_bytes):
-    """Extract PDF text, split it into chunks, and index it."""
     pages = extract_pdf_text(pdf_bytes)
 
     if not pages:
         raise ValueError(
             "No readable text found in this PDF. "
-            "If it is a scanned PDF, OCR may be required."
+            "Scanned PDFs may require OCR."
         )
 
     splitter = RecursiveCharacterTextSplitter(
@@ -284,44 +337,35 @@ def create_vector_store(pdf_bytes):
 
         for chunk in chunks:
             documents.append(
-                {
-                    "page_content": chunk,
-                    "metadata": {
-                        "page": page_data["page"],
-                    },
-                }
+                Document(
+                    page_content=chunk,
+                    metadata={"page": page_data["page"]},
+                )
             )
 
-    from langchain_core.documents import Document
-
-    langchain_documents = [
-        Document(
-            page_content=item["page_content"],
-            metadata=item["metadata"],
-        )
-        for item in documents
-    ]
+    if not documents:
+        raise ValueError("No text chunks could be created.")
 
     embeddings = load_embeddings()
 
     vector_store = Chroma.from_documents(
-        documents=langchain_documents,
+        documents=documents,
         embedding=embeddings,
         collection_name="documind_documents",
     )
 
-    return vector_store, len(langchain_documents)
+    return vector_store, len(documents)
 
+
+# --------------------------------------------------
+# RETRIEVE RELEVANT CONTEXT
+# --------------------------------------------------
 
 def retrieve_context(question, vector_store):
-    """Retrieve relevant document passages."""
     results = vector_store.similarity_search(
         question,
         k=4,
     )
-
-    if not results:
-        return "", []
 
     context_parts = []
     sources = []
@@ -330,27 +374,29 @@ def retrieve_context(question, vector_store):
         page_number = document.metadata.get("page", "?")
 
         context_parts.append(
-            f"[PDF Page {page_number}]\n{document.page_content}"
+            f"[PDF Page {page_number}]\n"
+            f"{document.page_content}"
         )
 
-        sources.append(
-            {
-                "page": page_number,
-                "text": document.page_content,
-            }
-        )
+        sources.append({
+            "page": page_number,
+            "text": document.page_content,
+        })
 
     return "\n\n".join(context_parts), sources
 
 
+# --------------------------------------------------
+# GENERATE ANSWER USING GROQ
+# --------------------------------------------------
+
 def generate_answer(question, context, history):
-    """Generate a grounded answer using Groq."""
     api_key = get_api_key()
 
     if not api_key:
         raise ValueError(
-            "GROQ_API_KEY is missing. Add it to your local .env "
-            "file or Streamlit Cloud Secrets."
+            "GROQ_API_KEY is missing. Add it to your local "
+            ".env file or Streamlit Cloud Secrets."
         )
 
     client = Groq(api_key=api_key)
@@ -359,13 +405,12 @@ def generate_answer(question, context, history):
         {
             "role": "system",
             "content": (
-                "You are DocuMind, a helpful document question-answering "
-                "assistant. Answer using the supplied PDF context. "
-                "Do not invent facts that are not supported by the context. "
-                "If the answer is not present in the context, clearly say "
-                "that you could not find the answer in the uploaded document. "
-                "When useful, refer to the PDF page numbers shown in context. "
-                "Give clear, readable answers."
+                "You are DocuMind, a helpful document Q&A assistant. "
+                "Answer using the supplied PDF context. Do not invent "
+                "facts. If the answer is not present in the context, "
+                "say you could not find it in the uploaded document. "
+                "Refer to PDF page numbers when useful. "
+                "Keep answers clear and readable."
             ),
         }
     ]
@@ -373,23 +418,19 @@ def generate_answer(question, context, history):
     # Include recent conversation for follow-up questions.
     for message in history[-6:]:
         if message["role"] in ("user", "assistant"):
-            messages.append(
-                {
-                    "role": message["role"],
-                    "content": message["content"],
-                }
-            )
+            messages.append({
+                "role": message["role"],
+                "content": message["content"],
+            })
 
-    messages.append(
-        {
-            "role": "user",
-            "content": (
-                f"PDF context:\n{context}\n\n"
-                f"Question: {question}\n\n"
-                "Answer based on the PDF context above."
-            ),
-        }
-    )
+    messages.append({
+        "role": "user",
+        "content": (
+            f"PDF context:\n{context}\n\n"
+            f"Question: {question}\n\n"
+            "Answer based on the PDF context above."
+        ),
+    })
 
     response = client.chat.completions.create(
         model=MODEL_NAME,
@@ -397,8 +438,9 @@ def generate_answer(question, context, history):
         temperature=0.2,
     )
 
-    return response.choices[0].message.content or (
-        "I couldn't generate an answer for this question."
+    return (
+        response.choices[0].message.content
+        or "I couldn't generate an answer."
     )
 
 
@@ -413,7 +455,6 @@ with st.sidebar:
     )
 
     st.caption("Your intelligent document assistant")
-
     st.divider()
 
     st.markdown("### 📁 Upload document")
@@ -421,7 +462,7 @@ with st.sidebar:
     uploaded_file = st.file_uploader(
         "Choose a PDF file",
         type=["pdf"],
-        help="Upload a text-based PDF to ask questions about it.",
+        help="Upload a PDF to ask questions about it.",
     )
 
     if uploaded_file is not None:
@@ -432,10 +473,8 @@ with st.sidebar:
             st.session_state.processed = False
             st.session_state.messages = []
 
-    if st.session_state.pdf_bytes:
-        st.caption(
-            f"Selected: {st.session_state.document_name}"
-        )
+    if st.session_state.pdf_bytes is not None:
+        st.caption(f"Selected: {st.session_state.document_name}")
 
         if st.button(
             "⚙️ Process document",
@@ -444,7 +483,7 @@ with st.sidebar:
         ):
             try:
                 with st.spinner(
-                    "Reading PDF and creating document embeddings..."
+                    "Reading PDF and creating embeddings..."
                 ):
                     vector_store, chunk_count = create_vector_store(
                         st.session_state.pdf_bytes
@@ -455,26 +494,30 @@ with st.sidebar:
                 st.session_state.messages = []
 
                 st.success(
-                    f"Document processed successfully! "
+                    f"Document processed! "
                     f"{chunk_count} text chunks indexed."
                 )
 
             except Exception as error:
                 st.session_state.vector_store = None
                 st.session_state.processed = False
-                st.error(f"Could not process the PDF: {error}")
+                st.error(f"Could not process PDF: {error}")
 
         if st.session_state.processed:
             st.success("Document ready for questions")
 
+        # Download original PDF
         st.download_button(
             label="⬇️ Download original PDF",
             data=st.session_state.pdf_bytes,
-            file_name=st.session_state.document_name or "document.pdf",
+            file_name=(
+                st.session_state.document_name or "document.pdf"
+            ),
             mime="application/pdf",
             use_container_width=True,
         )
 
+        # Clear uploaded document
         if st.button(
             "🗑️ Clear document",
             use_container_width=True,
@@ -493,8 +536,8 @@ with st.sidebar:
         """
         1. Upload a PDF.
         2. Click **Process document**.
-        3. Ask questions about its content.
-        4. Review the answer and source pages.
+        3. Ask questions about the PDF.
+        4. Read answers and check source pages.
         """
     )
 
@@ -528,6 +571,11 @@ chat_column, document_column = st.columns(
     gap="large",
 )
 
+
+# --------------------------------------------------
+# CHAT SECTION
+# --------------------------------------------------
+
 with chat_column:
     st.markdown(
         '<div class="section-title">💬 Document Q&A</div>',
@@ -545,9 +593,9 @@ with chat_column:
             <div class="info-card">
                 <h3>✨ What you can do</h3>
                 <p>
-                    Summarize a document, find specific information,
+                    Summarize documents, find specific information,
                     understand difficult sections, and ask follow-up
-                    questions about the uploaded PDF.
+                    questions about your PDF.
                 </p>
             </div>
             """,
@@ -555,7 +603,7 @@ with chat_column:
         )
 
     else:
-        # Display existing conversation.
+        # Display previous messages.
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
@@ -573,19 +621,19 @@ with chat_column:
         )
 
         if question:
-            st.session_state.messages.append(
-                {
-                    "role": "user",
-                    "content": question,
-                }
-            )
+            previous_history = st.session_state.messages.copy()
+
+            st.session_state.messages.append({
+                "role": "user",
+                "content": question,
+            })
 
             with st.chat_message("user"):
                 st.markdown(question)
 
             with st.chat_message("assistant"):
                 try:
-                    with st.spinner("Searching the document..."):
+                    with st.spinner("Searching your document..."):
                         context, sources = retrieve_context(
                             question,
                             st.session_state.vector_store,
@@ -597,12 +645,6 @@ with chat_column:
                                 "in the uploaded document."
                             )
                         else:
-                            # Exclude the latest question from the
-                            # previous-history messages to avoid duplication.
-                            previous_history = (
-                                st.session_state.messages[:-1]
-                            )
-
                             answer = generate_answer(
                                 question,
                                 context,
@@ -619,13 +661,11 @@ with chat_column:
                                 )
                                 st.write(source["text"])
 
-                    st.session_state.messages.append(
-                        {
-                            "role": "assistant",
-                            "content": answer,
-                            "sources": sources,
-                        }
-                    )
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": answer,
+                        "sources": sources,
+                    })
 
                 except Exception as error:
                     error_message = (
@@ -633,12 +673,15 @@ with chat_column:
                     )
                     st.error(error_message)
 
-                    st.session_state.messages.append(
-                        {
-                            "role": "assistant",
-                            "content": error_message,
-                        }
-                    )
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": error_message,
+                    })
+
+
+# --------------------------------------------------
+# DOCUMENT DETAILS
+# --------------------------------------------------
 
 with document_column:
     st.markdown(
@@ -646,15 +689,29 @@ with document_column:
         unsafe_allow_html=True,
     )
 
-    if st.session_state.pdf_bytes:
+    if st.session_state.pdf_bytes is not None:
+        document_name = st.session_state.document_name or "PDF"
+
+        # Escape HTML characters in uploaded filename.
+        safe_name = (
+            document_name
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+        )
+
+        document_status = (
+            "Ready to use"
+            if st.session_state.processed
+            else "Waiting to be processed"
+        )
+
         st.markdown(
             f"""
             <div class="info-card">
-                <h3>📄 {st.session_state.document_name}</h3>
-                <p>
-                    {"Ready to use" if st.session_state.processed
-                    else "Waiting to be processed"}
-                </p>
+                <h3>📄 {safe_name}</h3>
+                <p>{document_status}</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -680,7 +737,7 @@ with document_column:
             )
 
         except Exception:
-            st.caption("PDF preview information is unavailable.")
+            st.caption("PDF details are unavailable.")
 
     else:
         st.markdown(
@@ -688,14 +745,15 @@ with document_column:
             <div class="info-card">
                 <h3>📂 No document uploaded</h3>
                 <p>
-                    Your uploaded document details and page
-                    information will appear here.
+                    Upload a PDF to see document details and page
+                    information here.
                 </p>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
+    # Clear chat history
     if st.session_state.processed:
         if st.button(
             "🧹 Clear chat history",
@@ -703,6 +761,11 @@ with document_column:
         ):
             st.session_state.messages = []
             st.rerun()
+
+
+# --------------------------------------------------
+# FOOTER
+# --------------------------------------------------
 
 st.divider()
 
