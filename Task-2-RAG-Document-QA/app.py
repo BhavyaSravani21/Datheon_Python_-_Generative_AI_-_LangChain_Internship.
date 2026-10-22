@@ -31,11 +31,32 @@ st.set_page_config(
 # -------------------- PROFESSIONAL UI --------------------
 
 st.markdown("""
-
-/* Make chat text readable */
+<style>
+/* Chat message background and text */
 [data-testid="stChatMessage"] {
+    border-radius: 14px;
+    background-color: #FFFFFF !important;
     color: #172B4D !important;
-    background-color: #FFFFFF;
+}
+
+[data-testid="stChatMessage"] p,
+[data-testid="stChatMessage"] li,
+[data-testid="stChatMessage"] span,
+[data-testid="stChatMessage"] div,
+[data-testid="stChatMessage"] strong {
+    color: #172B4D !important;
+}
+
+/* Question input text */
+[data-testid="stChatInput"] textarea {
+    color: #172B4D !important;
+    background-color: #FFFFFF !important;
+    -webkit-text-fill-color: #172B4D !important;
+}
+
+[data-testid="stChatInput"] textarea::placeholder {
+    color: #64748B !important;
+    -webkit-text-fill-color: #64748B !important;
 }
 
 [data-testid="stChatMessage"] p,
@@ -57,7 +78,7 @@ st.markdown("""
     -webkit-text-fill-color: #64748B !important;
 }
 
-
+</style>
     .block-container {
         max-width: 1600px;
         padding: 1.5rem 2rem 2rem;
