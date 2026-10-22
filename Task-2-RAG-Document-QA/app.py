@@ -1,9 +1,9 @@
 
 import os
-import base64
 import hashlib
 from pathlib import Path
 from io import BytesIO
+
 import streamlit as st
 from dotenv import load_dotenv
 from groq import Groq
@@ -25,6 +25,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
 
 # -------------------- PROFESSIONAL UI --------------------
 
@@ -52,12 +53,6 @@ st.markdown("""
         letter-spacing: -0.5px;
     }
 
-    .subtitle {
-        color: #64748B;
-        font-size: 0.92rem;
-        margin-top: -8px;
-    }
-
     .hero {
         background: linear-gradient(120deg, #15304B, #167D83);
         padding: 24px 28px;
@@ -78,24 +73,11 @@ st.markdown("""
         font-size: 0.95rem;
     }
 
-    .panel {
-        background: #FFFFFF;
-        border: 1px solid #E1E8F0;
-        border-radius: 15px;
-        padding: 16px;
-        margin-bottom: 12px;
-    }
-
     .panel-title {
         font-size: 1.08rem;
         font-weight: 750;
         color: #15304B;
         margin-bottom: 8px;
-    }
-
-    .muted {
-        color: #64748B;
-        font-size: 0.85rem;
     }
 
     div.stButton > button {
@@ -106,10 +88,6 @@ st.markdown("""
 
     [data-testid="stChatMessage"] {
         border-radius: 14px;
-    }
-
-    iframe {
-        border-radius: 12px;
     }
 
     #MainMenu, footer {
@@ -132,6 +110,7 @@ def load_embeddings():
 
 def process_pdf(pdf_bytes, filename):
     reader = PdfReader(BytesIO(pdf_bytes))
+
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=800,
         chunk_overlap=100,
@@ -155,7 +134,6 @@ def process_pdf(pdf_bytes, filename):
             "No readable text found. The PDF may be scanned or image-based."
         )
 
-    # Unique collection for each uploaded document
     doc_hash = hashlib.md5(pdf_bytes).hexdigest()[:12]
     collection_name = f"doc_{doc_hash}"
 
@@ -266,7 +244,8 @@ with st.sidebar:
             with st.spinner("Reading and indexing your document..."):
                 try:
                     db, chunk_count, page_count = process_pdf(
-                        pdf_bytes, uploaded_file.name
+                        pdf_bytes,
+                        uploaded_file.name,
                     )
 
                     st.session_state.db = db
@@ -324,14 +303,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# -------------------- THREE-PANEL DASHBOARD --------------------
+# -------------------- DASHBOARD --------------------
 
 chat_column, document_column = st.columns(
     [1.1, 0.9],
     gap="large",
 )
 
-# CENTER / LEFT: CHAT
+
+# -------------------- CHAT PANEL --------------------
+
 with chat_column:
     st.markdown(
         '<div class="panel-title">💬 Document chat</div>',
@@ -344,9 +325,10 @@ with chat_column:
             f"Ready to answer questions about {info['name']}"
         )
     else:
-        st.info("Upload and process a PDF from the sidebar to start chatting.")
+        st.info(
+            "Upload and process a PDF from the sidebar to start chatting."
+        )
 
-    # Display chat history
     for item in st.session_state.chat_history:
         with st.chat_message("user"):
             st.write(item["question"])
@@ -364,7 +346,6 @@ with chat_column:
                 else:
                     st.caption("No source passages were retrieved.")
 
-    # Input at the bottom of the chat column
     question = st.chat_input(
         "Ask a question about your document...",
         disabled=(st.session_state.db is None),
@@ -372,9 +353,14 @@ with chat_column:
 
     if question:
         if not API_KEY:
-            st.error("GROQ_API_KEY is missing. Check your .env file.")
+            st.error(
+                "GROQ_API_KEY is missing. Configure your API key "
+                "in your local .env file or Streamlit Cloud secrets."
+            )
         else:
-            with st.spinner("Searching the PDF and generating an answer..."):
+            with st.spinner(
+                "Searching the PDF and generating an answer..."
+            ):
                 try:
                     answer, sources = generate_answer(
                         st.session_state.db,
@@ -398,7 +384,8 @@ with chat_column:
             st.rerun()
 
 
-# RIGHT: PDF DOCUMENT PREVIEW
+# -------------------- PDF DOCUMENT PREVIEW --------------------
+
 with document_column:
     st.markdown(
         '<div class="panel-title">📄 Document preview</div>',
@@ -407,23 +394,22 @@ with document_column:
 
     if st.session_state.pdf_bytes:
         info = st.session_state.doc_info
-        st.caption(f"{info['name']} · {info['pages']} pages")
 
-        encoded_pdf = base64.b64encode(
-            st.session_state.pdf_bytes
-        ).decode("utf-8")
+        st.caption(
+            f"{info['name']} · {info['pages']} pages"
+        )
 
-        pdf_html = f"""
-        <iframe
-            src="data:application/pdf;base64,{encoded_pdf}"
-            width="100%"
-            height="720"
-            style="border:1px solid #DCE4EC; background:white;"
-            type="application/pdf">
-        </iframe>
-        """
-
-        st.markdown(pdf_html, unsafe_allow_html=True)
+        # Native Streamlit PDF viewer instead of a Base64 iframe
+        try:
+            st.pdf(
+                BytesIO(st.session_state.pdf_bytes),
+                height=720,
+            )
+        except (AttributeError, TypeError):
+            st.warning(
+                "The PDF viewer is unavailable in this Streamlit version. "
+                "You can download the PDF below."
+            )
 
         st.download_button(
             "⬇️ Download original PDF",
@@ -432,6 +418,7 @@ with document_column:
             mime="application/pdf",
             use_container_width=True,
         )
+
     else:
         st.markdown("""
         <div style="
