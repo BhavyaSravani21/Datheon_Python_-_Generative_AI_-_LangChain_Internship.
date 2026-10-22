@@ -17,6 +17,7 @@ from langchain_chroma import Chroma
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env", override=True)
+
 API_KEY = os.getenv("GROQ_API_KEY")
 
 st.set_page_config(
@@ -80,7 +81,8 @@ st.markdown("""
         margin-bottom: 8px;
     }
 
-    div.stButton > button {
+    div.stButton > button,
+    div.stDownloadButton > button {
         border-radius: 9px;
         font-weight: 600;
         min-height: 42px;
@@ -108,7 +110,7 @@ def load_embeddings():
 
 # -------------------- PDF PROCESSING --------------------
 
-def process_pdf(pdf_bytes, filename):
+def process_pdf(pdf_bytes):
     reader = PdfReader(BytesIO(pdf_bytes))
 
     splitter = RecursiveCharacterTextSplitter(
@@ -134,7 +136,7 @@ def process_pdf(pdf_bytes, filename):
             "No readable text found. The PDF may be scanned or image-based."
         )
 
-    doc_hash = hashlib.md5(pdf_bytes).hexdigest()[:12]
+    doc_hash = hashlib.sha256(pdf_bytes).hexdigest()[:16]
     collection_name = f"doc_{doc_hash}"
 
     db = Chroma.from_texts(
@@ -175,9 +177,8 @@ def generate_answer(db, question):
                     "You are a document question-answering assistant. "
                     "Use ONLY the supplied PDF excerpts. "
                     "If the excerpts do not contain enough information, "
-                    "clearly say the document does not provide enough "
-                    "information. Never invent facts. Include supporting "
-                    "PDF page numbers in your answer."
+                    "say the document does not provide enough information. "
+                    "Never invent facts. Include supporting PDF page numbers."
                 ),
             },
             {
@@ -193,7 +194,10 @@ def generate_answer(db, question):
         max_completion_tokens=700,
     )
 
-    answer = response.choices[0].message.content
+    answer = response.choices[0].message.content or (
+        "No answer was returned. Please try again."
+    )
+
     return answer, results
 
 
@@ -219,9 +223,9 @@ with st.sidebar:
         '<div class="brand">📚 DocuMind</div>',
         unsafe_allow_html=True,
     )
+
     st.caption("AI-powered document assistant")
     st.divider()
-
     st.markdown("### Your document")
 
     uploaded_file = st.file_uploader(
@@ -239,14 +243,11 @@ with st.sidebar:
             use_container_width=True,
         ):
             pdf_bytes = uploaded_file.getvalue()
-            pdf_hash = hashlib.md5(pdf_bytes).hexdigest()
+            pdf_hash = hashlib.sha256(pdf_bytes).hexdigest()
 
             with st.spinner("Reading and indexing your document..."):
                 try:
-                    db, chunk_count, page_count = process_pdf(
-                        pdf_bytes,
-                        uploaded_file.name,
-                    )
+                    db, chunk_count, page_count = process_pdf(pdf_bytes)
 
                     st.session_state.db = db
                     st.session_state.pdf_bytes = pdf_bytes
@@ -321,13 +322,9 @@ with chat_column:
 
     if st.session_state.doc_info:
         info = st.session_state.doc_info
-        st.caption(
-            f"Ready to answer questions about {info['name']}"
-        )
+        st.caption(f"Ready to answer questions about {info['name']}")
     else:
-        st.info(
-            "Upload and process a PDF from the sidebar to start chatting."
-        )
+        st.info("Upload and process a PDF from the sidebar to start chatting.")
 
     for item in st.session_state.chat_history:
         with st.chat_message("user"):
@@ -354,13 +351,11 @@ with chat_column:
     if question:
         if not API_KEY:
             st.error(
-                "GROQ_API_KEY is missing. Configure your API key "
-                "in your local .env file or Streamlit Cloud secrets."
+                "GROQ_API_KEY is missing. Check your local .env file "
+                "or configure the key in Streamlit Cloud secrets."
             )
         else:
-            with st.spinner(
-                "Searching the PDF and generating an answer..."
-            ):
+            with st.spinner("Searching the PDF and generating an answer..."):
                 try:
                     answer, sources = generate_answer(
                         st.session_state.db,
@@ -384,7 +379,7 @@ with chat_column:
             st.rerun()
 
 
-# -------------------- PDF DOCUMENT PREVIEW --------------------
+# -------------------- PDF DOCUMENT PANEL --------------------
 
 with document_column:
     st.markdown(
@@ -395,24 +390,25 @@ with document_column:
     if st.session_state.pdf_bytes:
         info = st.session_state.doc_info
 
-        st.caption(
-            f"{info['name']} · {info['pages']} pages"
-        )
+        st.caption(f"{info['name']} · {info['pages']} pages")
 
-        # Native Streamlit PDF viewer instead of a Base64 iframe
-        try:
-            st.pdf(
-                BytesIO(st.session_state.pdf_bytes),
-                height=720,
-            )
-        except (AttributeError, TypeError):
-            st.warning(
-                "The PDF viewer is unavailable in this Streamlit version. "
-                "You can download the PDF below."
-            )
+        st.markdown("""
+        <div style="
+            background:white;
+            border:1px solid #DCE4EC;
+            border-radius:14px;
+            padding:24px;
+            text-align:center;
+            color:#64748B;
+            margin-bottom:12px;">
+            <div style="font-size:48px;">📄</div>
+            <h3 style="color:#15304B;">PDF ready</h3>
+            <p>Download the original document to view it in your browser.</p>
+        </div>
+        """, unsafe_allow_html=True)
 
         st.download_button(
-            "⬇️ Download original PDF",
+            "⬇️ Open / Download PDF",
             data=st.session_state.pdf_bytes,
             file_name=info["name"],
             mime="application/pdf",
@@ -444,6 +440,7 @@ with document_column:
 # -------------------- FOOTER --------------------
 
 st.divider()
+
 st.caption(
     "DocuMind · Retrieval-Augmented Generation (RAG) · "
     "Answers are grounded in retrieved document passages."
