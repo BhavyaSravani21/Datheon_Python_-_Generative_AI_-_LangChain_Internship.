@@ -1,5 +1,6 @@
 
 import os
+import html
 from io import BytesIO
 
 import streamlit as st
@@ -12,9 +13,9 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 
 
-# --------------------------------------------------
+# ==================================================
 # CONFIGURATION
-# --------------------------------------------------
+# ==================================================
 
 load_dotenv()
 
@@ -29,32 +30,36 @@ MODEL_NAME = "openai/gpt-oss-120b"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
-# --------------------------------------------------
+# ==================================================
 # API KEY
-# --------------------------------------------------
+# ==================================================
 
 def get_api_key():
     try:
-        return st.secrets["GROQ_API_KEY"]
-    except (KeyError, FileNotFoundError):
-        return os.getenv("GROQ_API_KEY", "")
+        key = st.secrets.get("GROQ_API_KEY", "")
+        if key:
+            return key
+    except Exception:
+        pass
+
+    return os.getenv("GROQ_API_KEY", "")
 
 
-# --------------------------------------------------
-# PROFESSIONAL UI STYLES
-# --------------------------------------------------
+# ==================================================
+# PROFESSIONAL LIGHT UI
+# ==================================================
 
 st.markdown(
     """
     <style>
-    /* Main page */
+    /* Main application */
     .stApp {
-        background: #f5f7fb;
-        color: #172033;
+        background: #f5f7fb !important;
+        color: #172033 !important;
     }
 
     [data-testid="stHeader"] {
-        background: #f5f7fb;
+        background: #f5f7fb !important;
     }
 
     .block-container {
@@ -65,12 +70,12 @@ st.markdown(
 
     /* Sidebar */
     [data-testid="stSidebar"] {
-        background: #ffffff;
-        border-right: 1px solid #e1e7f0;
+        background: #ffffff !important;
+        border-right: 1px solid #dbe4f0;
     }
 
     [data-testid="stSidebar"] * {
-        color: #172033;
+        color: #172033 !important;
     }
 
     /* Brand */
@@ -112,7 +117,7 @@ st.markdown(
 
     /* Information cards */
     .info-card {
-        background: #ffffff;
+        background: #ffffff !important;
         border: 1px solid #dbe4f0;
         border-radius: 16px;
         padding: 1.2rem;
@@ -130,18 +135,107 @@ st.markdown(
         margin-bottom: 0;
     }
 
-    /* Chat messages */
+    /* ------------------------------------------
+       PDF UPLOADER
+       ------------------------------------------ */
+
+    [data-testid="stFileUploader"] {
+        background: #ffffff !important;
+        border: 1px solid #cbd8ee !important;
+        border-radius: 14px !important;
+        padding: 10px !important;
+    }
+
+    [data-testid="stFileUploader"] section,
+    [data-testid="stFileUploaderDropzone"] {
+        background: #f0f5ff !important;
+        border: 2px dashed #91aee5 !important;
+        border-radius: 12px !important;
+    }
+
+    /* Upload instructions */
+    [data-testid="stFileUploader"] label,
+    [data-testid="stFileUploader"] p,
+    [data-testid="stFileUploader"] span,
+    [data-testid="stFileUploader"] small,
+    [data-testid="stFileUploader"] div {
+        color: #243b80 !important;
+    }
+
+    /* Browse files button */
+    [data-testid="stFileUploader"] button {
+        background: #dce8ff !important;
+        color: #203779 !important;
+        border: 1px solid #a8bee9 !important;
+        border-radius: 8px !important;
+        font-weight: 650 !important;
+    }
+
+    [data-testid="stFileUploader"] button:hover {
+        background: #c7d9ff !important;
+        color: #172554 !important;
+    }
+
+    /* Uploaded file information */
+    [data-testid="stFileUploaderFileName"] {
+        color: #172033 !important;
+    }
+
+    /* ------------------------------------------
+       ALL BUTTONS
+       ------------------------------------------ */
+
+    .stButton > button,
+    .stDownloadButton > button {
+        background: #e5edff !important;
+        color: #243b80 !important;
+        border: 1px solid #b8c9f0 !important;
+        border-radius: 10px !important;
+        font-weight: 650 !important;
+        min-height: 2.6rem;
+    }
+
+    .stButton > button:hover,
+    .stDownloadButton > button:hover {
+        background: #d0dfff !important;
+        color: #172554 !important;
+        border-color: #829fe5 !important;
+    }
+
+    /* Primary buttons */
+    .stButton > button[kind="primary"],
+    .stButton > button[data-testid="stBaseButton-primary"] {
+        background: #304bb5 !important;
+        color: #ffffff !important;
+        border: 1px solid #304bb5 !important;
+    }
+
+    .stButton > button[kind="primary"]:hover,
+    .stButton > button[data-testid="stBaseButton-primary"]:hover {
+        background: #243b98 !important;
+        color: #ffffff !important;
+    }
+
+    .stButton > button:disabled {
+        background: #edf0f5 !important;
+        color: #7b8495 !important;
+        border-color: #d8dee8 !important;
+    }
+
+    /* ------------------------------------------
+       CHAT MESSAGES
+       ------------------------------------------ */
+
     [data-testid="stChatMessage"] {
         background: #ffffff !important;
-        border: 1px solid #e1e7f0;
-        border-radius: 14px;
+        border: 1px solid #e1e7f0 !important;
+        border-radius: 14px !important;
         padding: 0.9rem;
         margin-bottom: 0.8rem;
     }
 
     [data-testid="stChatMessage"] p,
     [data-testid="stChatMessage"] li,
-    [data-testid="stChatMessage"] span,
     [data-testid="stChatMessage"] h1,
     [data-testid="stChatMessage"] h2,
     [data-testid="stChatMessage"] h3 {
@@ -151,7 +245,7 @@ st.markdown(
     /* Chat input */
     [data-testid="stChatInput"] {
         background: #ffffff !important;
-        border: 1px solid #cbd5e1 !important;
+        border: 1px solid #b8c9e5 !important;
         border-radius: 14px !important;
     }
 
@@ -165,79 +259,27 @@ st.markdown(
         color: #64748b !important;
     }
 
-    /* Standard input fields */
+    /* Text inputs */
     .stTextInput input,
     .stTextArea textarea {
         background: #ffffff !important;
         color: #172033 !important;
     }
 
-    /* ALL STANDARD BUTTONS */
-    .stButton > button,
-    .stDownloadButton > button {
-        background-color: #e8efff !important;
-        color: #243b80 !important;
-        border: 1px solid #b8c9f0 !important;
-        border-radius: 10px !important;
-        font-weight: 650 !important;
-        min-height: 2.6rem;
-    }
-
-    /* Button hover */
-    .stButton > button:hover,
-    .stDownloadButton > button:hover {
-        background-color: #d5e2ff !important;
-        color: #172554 !important;
-        border-color: #829fe5 !important;
-    }
-
-    /* Primary buttons */
-    .stButton > button[kind="primary"],
-    .stButton > button[data-testid="stBaseButton-primary"] {
-        background-color: #304bb5 !important;
-        color: #ffffff !important;
-        border: 1px solid #304bb5 !important;
-    }
-
-    .stButton > button[kind="primary"]:hover,
-    .stButton > button[data-testid="stBaseButton-primary"]:hover {
-        background-color: #243b98 !important;
-        color: #ffffff !important;
-    }
-
-    /* Disabled buttons */
-    .stButton > button:disabled {
-        background-color: #edf0f5 !important;
-        color: #7b8495 !important;
-        border-color: #d8dee8 !important;
-    }
-
-    /* File uploader */
-    [data-testid="stFileUploader"] {
-        background: #ffffff;
-        border: 1px solid #e1e7f0;
-        border-radius: 12px;
-        padding: 0.5rem;
-    }
-
-    [data-testid="stFileUploader"] * {
-        color: #172033;
-    }
-
-    /* Alerts */
-    [data-testid="stAlert"] {
-        border-radius: 12px;
-    }
-
     /* Expanders */
     [data-testid="stExpander"] {
-        background: #ffffff;
-        border: 1px solid #dbe4f0;
-        border-radius: 12px;
+        background: #ffffff !important;
+        border: 1px solid #dbe4f0 !important;
+        border-radius: 12px !important;
     }
 
     [data-testid="stExpander"] summary {
         color: #172033 !important;
+    }
+
+    /* Alerts */
+    [data-testid="stAlert"] {
+        border-radius: 12px !important;
     }
 
     /* Metrics */
@@ -260,9 +302,9 @@ st.markdown(
 )
 
 
-# --------------------------------------------------
+# ==================================================
 # SESSION STATE
-# --------------------------------------------------
+# ==================================================
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -280,9 +322,9 @@ if "processed" not in st.session_state:
     st.session_state.processed = False
 
 
-# --------------------------------------------------
+# ==================================================
 # PDF EXTRACTION
-# --------------------------------------------------
+# ==================================================
 
 def extract_pdf_text(pdf_bytes):
     reader = PdfReader(BytesIO(pdf_bytes))
@@ -300,9 +342,9 @@ def extract_pdf_text(pdf_bytes):
     return pages
 
 
-# --------------------------------------------------
+# ==================================================
 # EMBEDDINGS
-# --------------------------------------------------
+# ==================================================
 
 @st.cache_resource
 def load_embeddings():
@@ -311,9 +353,9 @@ def load_embeddings():
     )
 
 
-# --------------------------------------------------
+# ==================================================
 # CREATE VECTOR STORE
-# --------------------------------------------------
+# ==================================================
 
 def create_vector_store(pdf_bytes):
     pages = extract_pdf_text(pdf_bytes)
@@ -357,9 +399,9 @@ def create_vector_store(pdf_bytes):
     return vector_store, len(documents)
 
 
-# --------------------------------------------------
-# RETRIEVE RELEVANT CONTEXT
-# --------------------------------------------------
+# ==================================================
+# RETRIEVE CONTEXT
+# ==================================================
 
 def retrieve_context(question, vector_store):
     results = vector_store.similarity_search(
@@ -386,9 +428,9 @@ def retrieve_context(question, vector_store):
     return "\n\n".join(context_parts), sources
 
 
-# --------------------------------------------------
-# GENERATE ANSWER USING GROQ
-# --------------------------------------------------
+# ==================================================
+# GENERATE ANSWER
+# ==================================================
 
 def generate_answer(question, context, history):
     api_key = get_api_key()
@@ -415,7 +457,6 @@ def generate_answer(question, context, history):
         }
     ]
 
-    # Include recent conversation for follow-up questions.
     for message in history[-6:]:
         if message["role"] in ("user", "assistant"):
             messages.append({
@@ -444,9 +485,9 @@ def generate_answer(question, context, history):
     )
 
 
-# --------------------------------------------------
+# ==================================================
 # SIDEBAR
-# --------------------------------------------------
+# ==================================================
 
 with st.sidebar:
     st.markdown(
@@ -457,12 +498,12 @@ with st.sidebar:
     st.caption("Your intelligent document assistant")
     st.divider()
 
-    st.markdown("### 📁 Upload document")
+    st.markdown("### 📁 Upload your PDF")
 
     uploaded_file = st.file_uploader(
-        "Choose a PDF file",
+        "Upload your PDF",
         type=["pdf"],
-        help="Upload a PDF to ask questions about it.",
+        help="Choose a PDF file to ask questions about.",
     )
 
     if uploaded_file is not None:
@@ -474,7 +515,9 @@ with st.sidebar:
             st.session_state.messages = []
 
     if st.session_state.pdf_bytes is not None:
-        st.caption(f"Selected: {st.session_state.document_name}")
+        st.caption(
+            f"Selected: {st.session_state.document_name}"
+        )
 
         if st.button(
             "⚙️ Process document",
@@ -517,7 +560,7 @@ with st.sidebar:
             use_container_width=True,
         )
 
-        # Clear uploaded document
+        # Clear document
         if st.button(
             "🗑️ Clear document",
             use_container_width=True,
@@ -532,6 +575,7 @@ with st.sidebar:
     st.divider()
 
     st.markdown("### 💡 How to use")
+
     st.markdown(
         """
         1. Upload a PDF.
@@ -544,9 +588,9 @@ with st.sidebar:
     st.caption("Powered by Groq, LangChain and Chroma")
 
 
-# --------------------------------------------------
+# ==================================================
 # MAIN HEADER
-# --------------------------------------------------
+# ==================================================
 
 st.markdown(
     """
@@ -562,9 +606,9 @@ st.markdown(
 )
 
 
-# --------------------------------------------------
+# ==================================================
 # MAIN LAYOUT
-# --------------------------------------------------
+# ==================================================
 
 chat_column, document_column = st.columns(
     [2.1, 1],
@@ -572,9 +616,9 @@ chat_column, document_column = st.columns(
 )
 
 
-# --------------------------------------------------
+# ==================================================
 # CHAT SECTION
-# --------------------------------------------------
+# ==================================================
 
 with chat_column:
     st.markdown(
@@ -603,7 +647,7 @@ with chat_column:
         )
 
     else:
-        # Display previous messages.
+        # Display previous messages
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
@@ -679,9 +723,9 @@ with chat_column:
                     })
 
 
-# --------------------------------------------------
+# ==================================================
 # DOCUMENT DETAILS
-# --------------------------------------------------
+# ==================================================
 
 with document_column:
     st.markdown(
@@ -690,15 +734,8 @@ with document_column:
     )
 
     if st.session_state.pdf_bytes is not None:
-        document_name = st.session_state.document_name or "PDF"
-
-        # Escape HTML characters in uploaded filename.
-        safe_name = (
-            document_name
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace('"', "&quot;")
+        safe_name = html.escape(
+            st.session_state.document_name or "PDF"
         )
 
         document_status = (
@@ -763,9 +800,9 @@ with document_column:
             st.rerun()
 
 
-# --------------------------------------------------
+# ==================================================
 # FOOTER
-# --------------------------------------------------
+# ==================================================
 
 st.divider()
 
