@@ -1,0 +1,2 @@
+Python is a popular programming language.
+It is used in AI, automation, and web development.
