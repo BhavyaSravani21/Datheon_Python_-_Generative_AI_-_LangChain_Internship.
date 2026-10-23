@@ -1,0 +1,4 @@
+
+Smart Research Agent is a Python AI application.
+It uses web search, a calculator, and a local file reader.
+The purpose is to answer compound queries by selecting suitable tools.
